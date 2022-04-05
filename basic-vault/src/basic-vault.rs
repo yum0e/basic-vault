@@ -1,3 +1,4 @@
+// v1
 #![no_std]
 
 elrond_wasm::imports!();
