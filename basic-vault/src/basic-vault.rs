@@ -31,7 +31,6 @@ pub trait BasicVault {
         #[payment_token] token: TokenIdentifier,
         #[payment_amount] initial_amount: BigUint,
         name: ManagedBuffer,
-        users: ManagedVec<ManagedAddress>,
     ) -> SCResult<u64> {
         require!(token.is_egld(), "The token must be egld");
         require!(initial_amount > 0, "Supply some egld in the vault");
@@ -40,7 +39,7 @@ pub trait BasicVault {
             id: self.total_vaults().get(),
             creator: self.blockchain().get_caller(),
             name,
-            users,
+            users: ManagedVec::new(),
             amount: initial_amount,
         };
 
@@ -52,6 +51,19 @@ pub trait BasicVault {
 
         // return the id of the created vault
         Ok(vault.id)
+    }
+
+    #[endpoint(addUser)]
+    fn add_user(
+        &self, 
+        vault_id: u64, 
+        new_user: ManagedAddress
+    ) {
+        // retrieve the vault
+        let mut vault = self.vaults(vault_id).get();
+        require!(self.blockchain().get_caller() == vault.creator, "Not vault owner");
+        vault.users.push(new_user);
+        self.vaults(vault_id).set(&vault);
     }
 
     #[payable("*")]
@@ -77,6 +89,7 @@ pub trait BasicVault {
     fn distribute(&self, vault_id: u64) {
         // retrieve the vault
         let mut vault = self.vaults(vault_id).get();
+        require!(vault.users.len() > 0, "No addresses to distribute to");
         let vault_amount = &vault.amount;
         let amount_per_user = vault_amount / &BigUint::from(vault.users.len());
         require!(vault.amount != 0, "No funds available");
@@ -89,6 +102,8 @@ pub trait BasicVault {
             );
         }
     }
+
+    // view 
 
 
     // storage

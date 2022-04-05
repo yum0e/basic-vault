@@ -8,6 +8,7 @@ elrond_wasm_node::wasm_endpoints! {
     basic_vault
     (
         addAmount
+        addUser
         createVault
         distribute
     )
