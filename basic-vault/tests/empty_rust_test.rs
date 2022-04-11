@@ -2,22 +2,22 @@ use elrond_wasm::types::Address;
 use elrond_wasm_debug::{rust_biguint, testing_framework::*, DebugApi};
 use basic_vault::*;
 
-const WASM_PATH: &'static str = "output/empty.wasm";
+const WASM_PATH: &'static str = "output/basic-vault.wasm";
 
 struct ContractSetup<ContractObjBuilder>
 where
-    ContractObjBuilder: 'static + Copy + Fn() -> empty::ContractObj<DebugApi>,
+    ContractObjBuilder: 'static + Copy + Fn() -> basic_vault::ContractObj<DebugApi>,
 {
     pub blockchain_wrapper: BlockchainStateWrapper,
     pub owner_address: Address,
-    pub contract_wrapper: ContractObjWrapper<empty::ContractObj<DebugApi>, ContractObjBuilder>,
+    pub contract_wrapper: ContractObjWrapper<basic_vault::ContractObj<DebugApi>, ContractObjBuilder>,
 }
 
 fn setup_contract<ContractObjBuilder>(
     cf_builder: ContractObjBuilder,
 ) -> ContractSetup<ContractObjBuilder>
 where
-    ContractObjBuilder: 'static + Copy + Fn() -> empty::ContractObj<DebugApi>,
+    ContractObjBuilder: 'static + Copy + Fn() -> basic_vault::ContractObj<DebugApi>,
 {
     let rust_zero = rust_biguint!(0u64);
     let mut blockchain_wrapper = BlockchainStateWrapper::new();
@@ -46,7 +46,7 @@ where
 
 #[test]
 fn deploy_test() {
-    let mut setup = setup_contract(empty::contract_obj);
+    let mut setup = setup_contract(basic_vault::contract_obj);
 
     // simulate deploy
     setup
