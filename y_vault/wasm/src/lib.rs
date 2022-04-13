@@ -8,10 +8,14 @@ elrond_wasm_node::wasm_endpoints! {
     y_vault
     (
         setDepositLimit
-        setMangement
+        setGuardian
+        setLockedProfitDegradation
+        setManagement
+        setManagementFee
         setPerformanceFee
         setRewards
         setSymbol
+        totalAssets
     )
 }
 
