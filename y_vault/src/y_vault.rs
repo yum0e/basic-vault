@@ -161,11 +161,31 @@ pub trait YVault {
     }
 
     fn _issues_shares_for_amount(&self, to: ManagedAddress, amount: BigUint) -> BigUint {
-        let shares: BigUint= BigUint::zero();
-        // implement shares by creating SFT with self.send().esdt_nft_create()
-        // and then esdt_local_mint()
-        // https://github.com/ElrondNetwork/sc-dex-rs/blob/main/dex/pair/src/lib.rs#L227
-        // because with need totalSupply of the LP token (that will act as a Vault share)
+        let amount_to_send = amount.clone();
+        let shares = if self.total_supply().get() > 0 {
+            amount * self.total_supply().get() / self._free_funds()
+        } else {
+            amount
+        };
+
+        require!(shares != BigUint::zero(), "division rounding resulted in zero");
+
+        // mint new Vault shares
+        self.total_supply().set(self.total_supply().get() + &shares); // update total supply
+        // mint new shares and send
+        self.send().esdt_local_mint(
+            &self.vault_token().get(),
+            0,
+            &amount_to_send,
+        );
+        self.send().direct(
+            &to,
+            &self.vault_token().get(),
+            0,
+            &amount_to_send,
+            &[]
+        );
+        // return shares
         shares
     }
 
@@ -218,6 +238,9 @@ pub trait YVault {
 
     #[storage_mapper("lp_token_name")]
     fn vault_token_name(&self) -> SingleValueMapper<ManagedBuffer>;
+    
+    #[storage_mapper("total_supply")]
+    fn total_supply(&self) -> SingleValueMapper<BigUint>;
 
     #[storage_mapper("symbol")]
     fn symbol(&self) -> SingleValueMapper<ManagedBuffer>;
