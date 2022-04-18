@@ -8,12 +8,16 @@ const MANAGEMENT_FEE: u64 = 200;
 const MAX_BPS: u64 = 10_000;
 
 #[elrond_wasm::contract]
-pub trait yVault {
+pub trait YVault {
 
+    #[payable("EGLD")]
     #[init]
     fn init(
         &self,
         token: TokenIdentifier,
+        #[payment_amount] issue_cost: BigUint,
+        vault_token_name: ManagedBuffer,
+        vault_token_ticker: ManagedBuffer,
         management: ManagedAddress,
         guardian: ManagedAddress,
         rewards: ManagedAddress,
@@ -30,9 +34,46 @@ pub trait yVault {
         self.activation().set(self.blockchain().get_block_timestamp());
         let locked_profit_degradation: BigUint = BigUint::from(DEGRADATION_COEFFICIENT) * 46u64 * BigUint::from(10u64.pow(6)); // 6 blocks
         self.locked_profit_degradation().set(&locked_profit_degradation);
+
+        // create Vault token as a Meta ESDT
+        self.create_vault_token(issue_cost, vault_token_name, vault_token_ticker);
     }
     
     // only owner
+
+    #[only_owner]
+    #[payable("EGLD")]
+    #[endpoint(createVaultToken)]
+    fn create_vault_token(
+        &self, 
+        #[payment_amount] issue_cost: BigUint,
+        vault_token_name: ManagedBuffer,
+        vault_token_ticker: ManagedBuffer,
+    ) {
+        require!(self.vault_token().is_empty(), "Token already issued!");
+        self.vault_token_name().set(&vault_token_name);
+
+        // add creation role for the Meta-ESDT that will represent Vault shares
+        self.send()
+        .esdt_system_sc_proxy()
+        .register_meta_esdt(
+            issue_cost,
+            &vault_token_name,
+            &vault_token_ticker,
+            MetaTokenProperties {
+                num_decimals: 18,
+                can_freeze: false,
+                can_wipe: false,
+                can_pause: false,
+                can_change_owner: false,
+                can_upgrade: false,
+                can_add_special_roles: true,
+            },
+        )
+        .async_call()
+        .with_callback(self.callbacks().issue_callback()) // callback needed in order to set vault_token_id
+        .call_and_exit()
+    }
 
     #[only_owner]
     #[endpoint(setSymbol)]
@@ -128,12 +169,55 @@ pub trait yVault {
         shares
     }
 
+    // callback
 
+    // callback 
+
+    #[callback]
+    fn issue_callback(&self, #[call_result] result: ManagedAsyncCallResult<TokenIdentifier>) {
+        match result {
+            ManagedAsyncCallResult::Ok(token_id) => {
+                self.vault_token().set(&token_id);
+
+                // set the local roles
+                require!(!self.vault_token().is_empty(), "Vault token not issued!");
+
+                self.send()
+                .esdt_system_sc_proxy()
+                .set_special_roles(
+                    &self.blockchain().get_sc_address(),
+                    &self.vault_token().get(),
+                    [
+                        EsdtLocalRole::Mint, 
+                        EsdtLocalRole::Burn
+                    ][..].iter().cloned(),
+                )
+                .async_call()
+                .call_and_exit()
+            }
+            ManagedAsyncCallResult::Err(_) => {
+                let caller = self.blockchain().get_owner_address();
+                let (returned_tokens, token_id) = self.call_value().payment_token_pair();
+                if token_id.is_egld() && returned_tokens > 0 {
+                    self.send()
+                        .direct(&caller, &token_id, 0, &returned_tokens, &[]);
+                }
+            }
+        }
+    }
 
     // storage 
 
+    // the token inside the vault, used for the Strategy
     #[storage_mapper("token")]
     fn token(&self) -> SingleValueMapper<TokenIdentifier>;
+
+    // Vault token identifier, used to represent the shares the user has in the vault
+    #[storage_mapper("lp_token")]
+    fn vault_token(&self) -> SingleValueMapper<TokenIdentifier>;
+
+    #[storage_mapper("lp_token_name")]
+    fn vault_token_name(&self) -> SingleValueMapper<ManagedBuffer>;
 
     #[storage_mapper("symbol")]
     fn symbol(&self) -> SingleValueMapper<ManagedBuffer>;

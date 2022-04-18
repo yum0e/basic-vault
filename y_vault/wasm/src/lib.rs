@@ -7,6 +7,8 @@
 elrond_wasm_node::wasm_endpoints! {
     y_vault
     (
+        callBack
+        createVaultToken
         setDepositLimit
         setGuardian
         setLockedProfitDegradation
@@ -18,5 +20,3 @@ elrond_wasm_node::wasm_endpoints! {
         totalAssets
     )
 }
-
-elrond_wasm_node::wasm_empty_callback! {}
