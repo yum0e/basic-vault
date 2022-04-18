@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@elrondnetwork/erdjs-network-providers": "^0.1.5"
+  }
+}
